@@ -2,109 +2,154 @@
 
 > 用 Markdown 来书写您的剧情！
 
+## 一些碎碎语
+
+这是一个我个人用于学习的项目，为了快速实现我想要的效果，项目中实验性地使用了 **Vibe Coding**
+
+## 介绍
+
+MarkDialog 是 **书写文字剧情的范式**，它定义了如何用 **Markdown** 来描述文字冒险游戏的对话。
+
+它允许你：
+
+- 使用 **六级标题** 表示角色
+- 使用 **标题** 表示段落
+- 使用 **超链接** 表示跳转
+- 使用 **代码块** 来控制速度、画面，与游戏内容互动
+
 > [!NOTE]
-> 这是我闲暇时间折腾出来的项目，很多地方还没打磨好。
+> 如果你想了解 Markdialog 的语法，可以点击此处
 >
-> 另外我在里面实验性地使用了 **Vibe Coding**，所以你可能会看到一些不太正经的代码，请多包涵。
+> [Markdialog 示例文章](#示例文章)
 
-## 为什么会有 MarkDialog？
+## 工具链
 
-这个项目的起点其实很简单： 我想做一个 AVG 视觉小说的原型，需要让身边的人**能立刻上手写剧情**。
+MarkDialog 提供了编译工具 `mdialogc`，它可以将您的 **Markdown** 文件编译成中间语言，以快速地在任何前端播放或执行。
 
-但现实是：
-
-- 图形化编辑器太重
-- Ink、Yarn Spinner 虽然强大，但都需要学习
-- JSON / XML / 自定义 DSL 写起来都不够 “自然”
-
-我真正想要的是一种大家已经会写、不需要学习、打开就能写、写完就能跑的格式。
-
-然后我突然想到：
-
-### Markdown 不就是这样的吗？
-
-你可以在 **Typora**、**Obsidian**、**VS Code** 甚至 **Vim/NeoVim** 里轻松地编写他们
-
-> 还要什么自行车？
-
-当这个念头冒出来的时候，我整个人都兴奋了。 
-
-于是，MarkDialog 就这样诞生了。
-
-
-
-## MarkDialog 是什么？
-
-它让你可以：
-
-- 用六级标题切换角色
-- 用普通 Markdown 写台词
-- 用列表写选项
-- 用链接写跳转
-- 用代码块写速度、颜色、动作等富文本控制
-- 用图片切换背景
-
-你写的 Markdown 会被编译成一个 IR，然后解析到任何地方，只要你想！
-
-比如
-
-- 内联到 Rust 项目
-- 导入 Unity / Unreal / Godot
-- 转换为 Json
-- 转换为任何东西
-
-
-
-## MarkDialog 的语法？
-
-一般来讲，只要你会写 Markdown，你就会写 Markdialog
-
-你可以：
-
-```
-# 标题
-> 使用引用块表示注释
-
-###### 张三
-使用六级标题表示**角色名称**
-
-使用无序列表表示选项
-- 早上好
-- 中午好
-- 晚上好
-
-有序也行
-1. 早上好
-2. 中午好
-3. 晚上好
-
-> 使用超链接表示跳转
-中午吃？
-- 披萨 [](#Eat_Pizza)
-- 意面 [](#Eat_Pasta)
-- 不吃
-或者 *什么都不吃*！
-
-## Eat_Pizza
-吃披萨
-
-## Eat_Pasta
-吃意面
-
-> 使用图像来切换背景
-![](backgrounds/park)
-
-> 使用如下方式来内联其他文件！
-[[branch.md]]
+```bash
+# 执行，将会输出 YourMarkdown.dialog
+mdialogc -i YourMarkdown.md
 ```
 
-就是如此简单！
+目前支持的前端：
 
+- [Rust](#Rust 示例)
 
+## 其他
 
+#### 示例文章
 
+```markdown
+# 对话
 
-## 开源协议
+###### 爱丽丝
 
-哈哈，我采用 MIT License，放心玩去吧！
+早上好，鲍勃。
+
+你吃早饭了么？
+
+- [当然吃了！](#鲍勃吃过了早饭)
+- [并没。](#鲍勃还没吃早饭)
+- [我还不饿。](#鲍勃并不饿)
+
+## 鲍勃吃过了早饭
+
+###### 鲍勃
+
+我当然**吃了早饭**！
+
+###### 爱丽丝
+
+*哦。*我还想你跟我一起去吃呢。
+
+###### 旁白
+
+(剧情结束)
+
+## 鲍勃还没吃早饭
+
+###### 鲍勃
+
+并没吃。
+
+###### 爱丽丝
+
+[好啊！一起去吃早饭么？](#爱丽丝询问是否一起吃早饭)
+
+## 鲍勃并不饿
+
+###### 鲍勃
+
+*我其实不饿*？
+
+###### 爱丽丝
+
+那算了，今天太遗憾了。（*小声嘟囔*）
+
+###### 旁白
+
+(剧情结束)
+
+## 爱丽丝询问是否一起吃早饭
+
+###### 鲍勃
+
+让我想想。。。
+
+- 走吧！
+- 算了，我[并不饿](#鲍勃并不饿)
+
+###### 爱丽丝
+
+好啊！走吧！
+
+###### 旁白
+
+（于是鲍勃和爱丽丝一起吃了早饭）
+
+（剧情结束）
+```
+
+#### Rust 示例
+
+```toml
+# Cargo.toml
+[package]
+name = "your_proj"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+markdialog = { git = "https://github.com/CatilGrass/MarkDialog" }
+```
+
+```rust
+// main.rs
+use markdialog::generate::{markdialog, step};
+
+markdialog!(my = "alice_and_bob.dialog");
+
+fn main() {
+    let my_step = my::get_step(step!("鲍勃吃过了早饭")).unwrap();
+    let sentence = my_step.sentences[0];
+    println!(
+        "{} said : \"{}\"",
+        sentence.character.unwrap_or_default(),
+        sentence
+            .content_tokens
+            .iter()
+            .map(|token| match token {
+                my::Token::Text(t) => t,
+                my::Token::BoldText(t) => t,
+                my::Token::ItalicText(t) => t,
+                my::Token::BoldItalicText(t) => t,
+                _ => "",
+            }
+            .to_string())
+            .collect::<Vec<String>>()
+            .join("")
+    )
+}
+
+```
 
