@@ -1,4 +1,4 @@
-use markdialog_parser::{
+use markdialog_converter::{
     error::{Exit, handle_exit},
     parse::parse,
     special_argument, special_flag,
@@ -12,13 +12,13 @@ fn process() -> Result<(), Exit> {
     let version = special_flag!(args, "--version") || special_flag!(args, "-v");
 
     if version {
-        let version = include_str!("../../../version.txt");
+        let version = include_str!("../../version.txt");
         println!("{}", version.trim());
         return Err(Exit::Code(0));
     }
 
     if help || args.len() < 1 {
-        let usage = include_str!("../../../usage.txt");
+        let usage = include_str!("../../usage.txt");
         println!("{}", usage.trim());
         return Err(Exit::Code(0));
     }

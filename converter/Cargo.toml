@@ -1,5 +1,5 @@
 [package]
-name = "markdialog_parser"
+name = "markdialog_converter"
 workspaces.version = true
 edition = "2024"
 

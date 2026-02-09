@@ -1,0 +1,2 @@
+mdialogc (0.1.0)
+Mark Dialog Converter - Copyright © 2026 Weicao-CatilGrass

@@ -771,11 +771,11 @@ pub fn convert_to_step_sentence_structure(input: String) -> Result<String, Exit>
         if code_record_mode {
             // If code block marker is found again, end code recording
             if line.starts_with("```") && code_record_mode {
-                sentences_buffer.push_str("`\n");
+                sentences_buffer.push_str("\n");
                 code_record_mode = false;
                 continue;
             }
-            sentences_buffer.push_str(format!("{}\\n", line).as_str());
+            sentences_buffer.push_str(format!("`{}`", line).as_str());
             continue;
         }
 
@@ -837,7 +837,6 @@ pub fn convert_to_step_sentence_structure(input: String) -> Result<String, Exit>
 
         // Start code recording
         if line.starts_with("```") && !code_record_mode {
-            sentences_buffer.push('`');
             code_record_mode = true;
             continue;
         }

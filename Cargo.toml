@@ -7,10 +7,10 @@ edition = "2024"
 members = [
     "built_res", # Built Resources
     "player",    # Dialog Player
-    "parser"     # Markdown Parser
+    "converter"  # Markdown Converter
 ]
 
 [dependencies]
 built_res = { path = "built_res" }
 markdialog_player = { path = "player" }
-markdialog_parser = { path = "parser" }
+markdialog_converter = { path = "converter" }

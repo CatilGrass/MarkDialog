@@ -89,12 +89,12 @@ name = "markdialog"
 version = "0.1.0"
 dependencies = [
  "built_res",
- "markdialog_parser",
+ "markdialog_converter",
  "markdialog_player",
 ]
 
 [[package]]
-name = "markdialog_parser"
+name = "markdialog_converter"
 version = "0.0.0"
 dependencies = [
  "colored",

@@ -1,0 +1,6 @@
+mdialogc -i <FILE> -o <FILE>
+  -i  --input  <FILE>   Input file (Markdown / MarkDialog source)
+  -o, --output <FILE>   Output file (Generated IR / result)
+
+  -h, --help            Show this content
+  -v, --version         Show version

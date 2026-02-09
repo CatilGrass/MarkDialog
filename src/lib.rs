@@ -3,9 +3,9 @@
 //     pub use markdialog_player::*;
 // }
 
-// markdialog::parser
-pub mod parser {
-    pub use markdialog_parser::*;
+// markdialog::converter
+pub mod converter {
+    pub use markdialog_converter::*;
 }
 
 // markdialog::res
