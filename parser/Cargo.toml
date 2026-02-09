@@ -1,0 +1,10 @@
+[package]
+name = "markdialog_parser"
+workspaces.version = true
+edition = "2024"
+
+[dependencies]
+colored = "3.0"
+unicode-width = "0.2"
+regex = "1.12"
+sha2 = "0.10"

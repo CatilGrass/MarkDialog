@@ -1,0 +1,6 @@
+[package]
+name = "markdialog_player"
+workspaces.version = true
+edition = "2024"
+
+[dependencies]

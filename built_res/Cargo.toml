@@ -1,0 +1,6 @@
+[package]
+name = "built_res"
+workspaces.version = true
+edition = "2024"
+
+[dependencies]
