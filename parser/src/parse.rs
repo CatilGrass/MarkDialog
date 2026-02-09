@@ -65,8 +65,13 @@ fn expand_recursive(
 
         if let Some(include_path) = extract_include(line) {
             let include_abs = format_path(&current_path.parent().unwrap().join(include_path))?;
-            let include_content =
-                std::fs::read_to_string(&include_abs).map_err(|e| Exit::IoError(e))?;
+            let include_content = std::fs::read_to_string(&include_abs).map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    Exit::FileNotFound(include_abs.clone())
+                } else {
+                    Exit::IoError(e)
+                }
+            })?;
 
             let expanded = expand_recursive(include_content, &include_abs, stack)?;
             output.push_str(&expanded);

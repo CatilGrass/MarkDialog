@@ -7,6 +7,7 @@ use unicode_width::UnicodeWidthStr;
 pub enum Exit {
     Code(i32),
     IoError(std::io::Error),
+    FileNotFound(PathBuf),
     SyntaxError {
         content: String,
         reason: String,
@@ -28,6 +29,10 @@ pub fn handle_exit(e: Exit) {
     match e {
         Exit::Code(code) => exit(code),
         Exit::IoError(error) => print_parse_error(error.to_string()),
+        Exit::FileNotFound(path_buf) => {
+            eprintln!("File `{}` not found!", path_buf.display());
+            exit(1)
+        }
         Exit::SyntaxError {
             content,
             reason,

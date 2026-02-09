@@ -197,25 +197,5 @@ pub fn check_markdown_syntax(i: &String) -> Result<(), Exit> {
         });
     }
 
-    // Check if all anchors have corresponding headings
-    for (anchor, line_num, pos) in anchors {
-        // Normalize anchor for comparison: convert to lowercase and filter characters
-        let normalized_anchor = anchor
-            .to_lowercase()
-            .chars()
-            .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
-            .collect::<String>();
-
-        if !heading_ids.contains(&normalized_anchor) {
-            return Err(Exit::SyntaxError {
-                content: lines[(line_num - 1) as usize].to_string(),
-                reason: format!("Anchor '#{}' has no corresponding heading", anchor),
-                line: line_num,
-                begin: pos,
-                end: pos + anchor.len() as i64,
-            });
-        }
-    }
-
     Ok(())
 }
