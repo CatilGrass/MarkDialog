@@ -1020,34 +1020,61 @@ pub mod markdown_split_and_encode {
                     if chars.peek() == Some(&'*') {
                         chars.next(); // Consume the second '*'
 
-                        if in_bold {
-                            // End bold
-                            if !current_text.is_empty() {
-                                let encoded_text = encode_unicode(&current_text);
-                                result.push_str(&format!("[bold:[{}]]", encoded_text));
-                                current_text.clear();
+                        // Check for bold_italic (***)
+                        if chars.peek() == Some(&'*') {
+                            chars.next(); // Consume the third '*'
+
+                            if in_bold && in_italic {
+                                // End bold_italic
+                                if !current_text.is_empty() {
+                                    let encoded_text = encode_unicode(&current_text);
+                                    result.push_str(&format!("[bold_italic:[{}]]", encoded_text));
+                                    current_text.clear();
+                                }
+                                in_bold = false;
+                                in_italic = false;
+                            } else {
+                                // Start bold_italic
+                                if !current_text.is_empty() {
+                                    let encoded_text = encode_unicode(&current_text);
+                                    result.push_str(&format!("[text:[{}]]", encoded_text));
+                                    current_text.clear();
+                                }
+                                in_bold = true;
+                                in_italic = true;
                             }
-                            in_bold = false;
-                        } else if in_italic {
-                            if !current_text.is_empty() {
-                                let encoded_text = encode_unicode(&current_text);
-                                result.push_str(&format!("[italic:[{}]]", encoded_text));
-                                current_text.clear();
-                            }
-                            in_italic = false;
-                            // Start bold_italic
-                            in_bold = true;
                         } else {
-                            // Start bold
-                            if !current_text.is_empty() {
-                                let encoded_text = encode_unicode(&current_text);
-                                result.push_str(&format!("[text:[{}]]", encoded_text));
-                                current_text.clear();
+                            // Handle ** (bold)
+                            if in_bold && !in_italic {
+                                // End bold
+                                if !current_text.is_empty() {
+                                    let encoded_text = encode_unicode(&current_text);
+                                    result.push_str(&format!("[bold:[{}]]", encoded_text));
+                                    current_text.clear();
+                                }
+                                in_bold = false;
+                            } else if in_italic {
+                                // Currently in italic, encountering ** means we need to end italic and start bold_italic
+                                if !current_text.is_empty() {
+                                    let encoded_text = encode_unicode(&current_text);
+                                    result.push_str(&format!("[italic:[{}]]", encoded_text));
+                                    current_text.clear();
+                                }
+                                in_italic = false;
+                                in_bold = true;
+                            } else {
+                                // Start bold
+                                if !current_text.is_empty() {
+                                    let encoded_text = encode_unicode(&current_text);
+                                    result.push_str(&format!("[text:[{}]]", encoded_text));
+                                    current_text.clear();
+                                }
+                                in_bold = true;
                             }
-                            in_bold = true;
                         }
                     } else {
-                        if in_italic {
+                        // Single * (italic)
+                        if in_italic && !in_bold {
                             // End italic
                             if !current_text.is_empty() {
                                 let encoded_text = encode_unicode(&current_text);
@@ -1056,13 +1083,12 @@ pub mod markdown_split_and_encode {
                             }
                             in_italic = false;
                         } else if in_bold {
+                            // Currently in bold, encountering * means we need to start bold_italic
                             if !current_text.is_empty() {
                                 let encoded_text = encode_unicode(&current_text);
                                 result.push_str(&format!("[bold:[{}]]", encoded_text));
                                 current_text.clear();
                             }
-                            // Start bold_italic
-                            in_bold = true;
                             in_italic = true;
                         } else {
                             // Start italic

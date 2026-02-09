@@ -319,25 +319,14 @@ fn parse_content_block(block: &str) -> std::result::Result<TokenData, String> {
     // Handle Unicode escape sequences
     let decoded_content = decode_unicode_escapes(content)?;
 
-    // Check for formatting markers
+    // Remove backticks if present
     let trimmed_content = decoded_content.trim_matches('`');
 
     match label {
-        "text" => {
-            // Check text formatting
-            if trimmed_content.starts_with("**") && trimmed_content.ends_with("**") {
-                let inner = &trimmed_content[2..trimmed_content.len() - 2];
-                Ok(TokenData::BoldText(inner.to_string()))
-            } else if trimmed_content.starts_with("*") && trimmed_content.ends_with("*") {
-                let inner = &trimmed_content[1..trimmed_content.len() - 1];
-                Ok(TokenData::ItalicText(inner.to_string()))
-            } else if trimmed_content.starts_with("***") && trimmed_content.ends_with("***") {
-                let inner = &trimmed_content[3..trimmed_content.len() - 3];
-                Ok(TokenData::BoldItalicText(inner.to_string()))
-            } else {
-                Ok(TokenData::Text(trimmed_content.to_string()))
-            }
-        }
+        "text" => Ok(TokenData::Text(trimmed_content.to_string())),
+        "bold" => Ok(TokenData::BoldText(trimmed_content.to_string())),
+        "italic" => Ok(TokenData::ItalicText(trimmed_content.to_string())),
+        "bold_italic" => Ok(TokenData::BoldItalicText(trimmed_content.to_string())),
         "code" => Ok(TokenData::Code(trimmed_content.to_string())),
         _ => Err(format!("Unknown label: {}", label)),
     }
@@ -348,7 +337,6 @@ fn parse_next_step(block: &str) -> std::result::Result<Option<String>, String> {
         return Ok(None);
     }
 
-    // 格式: [#step_id]
     if !block.starts_with("[#") || !block.ends_with(']') {
         return Err(format!("Invalid next step format: {}", block));
     }
