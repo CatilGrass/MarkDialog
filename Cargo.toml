@@ -1,16 +1,17 @@
 [package]
 name = "markdialog"
-version = "0.1.0"
 edition = "2024"
 
 [workspace]
+package.version = "0.1.0"
 members = [
-    "built_res", # Built Resources
+    "gen",       # Generate Resource
+    "gen/macros",
     "player",    # Dialog Player
     "converter"  # Markdown Converter
 ]
 
 [dependencies]
-built_res = { path = "built_res" }
+res_gen = { path = "gen" }
 markdialog_player = { path = "player" }
 markdialog_converter = { path = "converter" }

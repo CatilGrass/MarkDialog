@@ -1,0 +1,13 @@
+[package]
+name = "res_gen_macros"
+edition = "2024"
+version.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2.0", features = ["full", "visit-mut"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+sha2 = "0.10"

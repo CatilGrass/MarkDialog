@@ -1,6 +1,7 @@
 [package]
-name = "markdialog_player"
+name = "res_gen"
 edition = "2024"
 version.workspace = true
 
 [dependencies]
+res_gen_macros = { path = "macros" }

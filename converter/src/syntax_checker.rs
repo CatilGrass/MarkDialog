@@ -1,3 +1,5 @@
+use regex::Regex;
+
 use crate::error::Exit;
 
 pub fn check_markdown_syntax(i: &String) -> Result<(), Exit> {
@@ -195,6 +197,24 @@ pub fn check_markdown_syntax(i: &String) -> Result<(), Exit> {
             begin,
             end: begin,
         });
+    }
+
+    Ok(())
+}
+
+/// Check for duplicate markers
+pub fn check_duplicate_marker(input: &String) -> Result<(), Exit> {
+    let mut seen = std::collections::HashSet::new();
+    let heading_re = Regex::new(r"^(#{1,5})\s+(.+)$").unwrap();
+
+    for line in input.lines() {
+        if let Some(caps) = heading_re.captures(line) {
+            let heading_text = caps[2].trim().to_string();
+            if seen.contains(&heading_text) {
+                return Err(Exit::DuplicateMarker(heading_text));
+            }
+            seen.insert(heading_text);
+        }
     }
 
     Ok(())

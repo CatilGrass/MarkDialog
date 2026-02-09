@@ -1,7 +1,7 @@
 [package]
 name = "markdialog_converter"
-workspaces.version = true
 edition = "2024"
+version.workspace = true
 
 [dependencies]
 colored = "3.0"
