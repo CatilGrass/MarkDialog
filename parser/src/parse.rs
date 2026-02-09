@@ -1,22 +1,107 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use regex::Regex;
 use sha2::{Digest, Sha256};
 
-use crate::{error::Exit, syntax_checker::check_markdown_syntax};
+use crate::{error::Exit, syntax_checker::check_markdown_syntax, utils::path_fmt::format_path};
 
 pub fn parse(input: PathBuf, ir_output: PathBuf) -> Result<(), Exit> {
     let result = std::fs::read_to_string(&input)?;
 
     check_markdown_syntax(&result)?;
 
+    let result = unwrap_includes(result, input)?;
+
+    check_duplicate_marker(&result)?;
+
     let result = clean_markdown(result)?;
     let result = fix_mark_jump(result)?;
     let result = replace_marker_name(result)?;
     let result = convert_to_step_sentence_structure(result)?;
     let result = strip_invalid_jump(result)?;
+    let result = convert_image_to_code(result)?;
+    let result = apply_code_lines(result)?;
+    let result = split_sentence_and_encode(result)?;
 
     std::fs::write(&ir_output, result)?;
+    Ok(())
+}
+
+/// Expand text includes of [[Dialog.md]]
+pub fn unwrap_includes(input: String, self_path: PathBuf) -> Result<String, Exit> {
+    let mut stack = Vec::<PathBuf>::new();
+    expand_recursive(input, &self_path, &mut stack)
+}
+
+fn expand_recursive(
+    content: String,
+    current_path: &Path,
+    stack: &mut Vec<PathBuf>,
+) -> Result<String, Exit> {
+    let mut output = String::new();
+    let mut in_code_block = false;
+
+    let current_norm = format_path(current_path)?;
+
+    if stack.contains(&current_norm) {
+        return Err(Exit::CycleDependency(current_norm));
+    }
+
+    stack.push(current_norm.clone());
+
+    for line in content.lines() {
+        if line.trim().starts_with("```") {
+            in_code_block = !in_code_block;
+            output.push_str(line);
+            output.push('\n');
+            continue;
+        }
+
+        if in_code_block {
+            output.push_str(line);
+            output.push('\n');
+            continue;
+        }
+
+        if let Some(include_path) = extract_include(line) {
+            let include_abs = format_path(&current_path.parent().unwrap().join(include_path))?;
+            let include_content =
+                std::fs::read_to_string(&include_abs).map_err(|e| Exit::IoError(e))?;
+
+            let expanded = expand_recursive(include_content, &include_abs, stack)?;
+            output.push_str(&expanded);
+        } else {
+            output.push_str(line);
+            output.push('\n');
+        }
+    }
+
+    stack.pop();
+
+    Ok(output)
+}
+
+fn extract_include(line: &str) -> Option<&str> {
+    line.trim()
+        .strip_prefix("[[")
+        .and_then(|s| s.strip_suffix("]]"))
+}
+
+/// Check for duplicate markers
+pub fn check_duplicate_marker(input: &String) -> Result<(), Exit> {
+    let mut seen = std::collections::HashSet::new();
+    let heading_re = Regex::new(r"^(#{1,5})\s+(.+)$").unwrap();
+
+    for line in input.lines() {
+        if let Some(caps) = heading_re.captures(line) {
+            let heading_text = caps[2].trim().to_string();
+            if seen.contains(&heading_text) {
+                return Err(Exit::DuplicateMarker(heading_text));
+            }
+            seen.insert(heading_text);
+        }
+    }
+
     Ok(())
 }
 
@@ -915,4 +1000,275 @@ pub fn strip_invalid_jump(input: String) -> Result<String, Exit> {
     }
 
     Ok(result_lines.join("\n"))
+}
+
+/// Convert image lines to code lines
+pub fn convert_image_to_code(input: String) -> Result<String, Exit> {
+    let mut result = String::new();
+    let lines: Vec<&str> = input.lines().collect();
+    let image_re = Regex::new(r"^!\[[^\]]*\]\(([^)]+)\)$").unwrap();
+
+    for line in lines {
+        if let Some(caps) = image_re.captures(line) {
+            let image_path = caps.get(1).unwrap().as_str();
+            result.push_str(&format!("`image \"{}\"`\n", image_path));
+        } else {
+            result.push_str(line);
+            result.push('\n');
+        }
+    }
+
+    // Remove trailing newline if present
+    if result.ends_with('\n') {
+        result.pop();
+    }
+
+    Ok(result)
+}
+
+/// Apply code lines to sentences
+pub fn apply_code_lines(input: String) -> Result<String, Exit> {
+    let mut out = String::new();
+    let lines: Vec<&str> = input.lines().collect();
+
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i];
+
+        if !line.trim_start().starts_with('`') {
+            out.push_str(line);
+            out.push('\n');
+            i += 1;
+            continue;
+        }
+
+        let mut code_buf = String::new();
+        while i < lines.len() && {
+            let line: &str = lines[i];
+            line.trim_start().starts_with('`')
+        } {
+            code_buf.push_str(lines[i].trim());
+            i += 1;
+        }
+
+        if i >= lines.len()
+            || !{
+                let line: &str = lines[i];
+                line.trim_start().starts_with('[')
+            }
+        {
+            continue;
+        }
+
+        if i + 1 < lines.len() && {
+            let line: &str = lines[i + 1];
+            line.trim_start().starts_with('[')
+        } {
+            continue;
+        }
+
+        let merged = helper_merge_code_into_sentence(&code_buf, lines[i]);
+        out.push_str(&merged);
+        out.push('\n');
+        i += 1;
+    }
+
+    Ok(out)
+}
+
+fn helper_merge_code_into_sentence(code: &str, sentence: &str) -> String {
+    if let Some(start) = sentence.find(":[") {
+        if let Some(_) = sentence[start + 2..].find(']') {
+            let content_start = start + 2;
+
+            let mut result = String::new();
+            result.push_str(&sentence[..content_start]);
+            result.push_str(code);
+            result.push_str(&sentence[content_start..]);
+            return result;
+        }
+    }
+
+    sentence.to_string()
+}
+
+/// Split sentences into embeddable tokens and perform Unicode encoding
+pub fn split_sentence_and_encode(input: String) -> Result<String, Exit> {
+    let mut result = String::new();
+    let lines: Vec<&str> = input.lines().collect();
+
+    for line in lines {
+        if line.starts_with('[') && line.contains("]:[") && line.contains("]->[") {
+            if let Some(start) = line.find("]:[") {
+                if let Some(end) = line.find("]->[") {
+                    let content = &line[start + 3..end];
+                    let processed_content = helper_process_sentence_content(content);
+
+                    let suffix = &line[end + 1..];
+
+                    let char_end = start;
+                    let char_start = 1;
+                    let character = &line[char_start..char_end];
+                    let encoded_character = helper_encode_unicode(character);
+
+                    // Build the new line with encoded character and processed content
+                    let new_line =
+                        format!("[{}]:{}{}", encoded_character, processed_content, suffix);
+                    result.push_str(&format!("{}\n", new_line));
+                    continue;
+                }
+            }
+        }
+        result.push_str(&format!("{}\n", line));
+    }
+
+    if result.ends_with('\n') {
+        result.pop();
+    }
+
+    Ok(result)
+}
+
+fn helper_process_sentence_content(content: &str) -> String {
+    let mut result = String::new();
+    let mut chars = content.chars().peekable();
+    let mut current_text = String::new();
+    let mut in_code = false;
+    let mut in_bold = false;
+    let mut in_italic = false;
+    let mut code_buffer = String::new();
+    let mut backticks_count = 0;
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '`' => {
+                backticks_count += 1;
+                if backticks_count == 1 {
+                    // Start of code block
+                    if !current_text.is_empty() {
+                        let encoded_text = helper_encode_unicode(&current_text);
+                        result.push_str(&format!("[text:[{}]]", encoded_text));
+                        current_text.clear();
+                    }
+                    code_buffer.push(ch);
+                    in_code = true;
+                } else if backticks_count == 2 && in_code {
+                    // End of code block
+                    code_buffer.push(ch);
+                    let encoded_code = helper_encode_unicode(&code_buffer);
+                    result.push_str(&format!("[code:[{}]]", encoded_code));
+                    code_buffer.clear();
+                    backticks_count = 0;
+                    in_code = false;
+                } else if backticks_count == 1 && !in_code {
+                    // Single backtick in text
+                    current_text.push(ch);
+                }
+            }
+            '*' => {
+                if in_code {
+                    code_buffer.push(ch);
+                    continue;
+                }
+
+                // Check for bold
+                if chars.peek() == Some(&'*') {
+                    chars.next(); // Consume the second '*'
+
+                    if in_bold {
+                        // End bold
+                        if !current_text.is_empty() {
+                            let encoded_text = helper_encode_unicode(&current_text);
+                            result.push_str(&format!("[bold:[{}]]", encoded_text));
+                            current_text.clear();
+                        }
+                        in_bold = false;
+                    } else if in_italic {
+                        if !current_text.is_empty() {
+                            let encoded_text = helper_encode_unicode(&current_text);
+                            result.push_str(&format!("[italic:[{}]]", encoded_text));
+                            current_text.clear();
+                        }
+                        in_italic = false;
+                        // Start bold_italic
+                        in_bold = true;
+                    } else {
+                        // Start bold
+                        if !current_text.is_empty() {
+                            let encoded_text = helper_encode_unicode(&current_text);
+                            result.push_str(&format!("[text:[{}]]", encoded_text));
+                            current_text.clear();
+                        }
+                        in_bold = true;
+                    }
+                } else {
+                    if in_italic {
+                        // End italic
+                        if !current_text.is_empty() {
+                            let encoded_text = helper_encode_unicode(&current_text);
+                            result.push_str(&format!("[italic:[{}]]", encoded_text));
+                            current_text.clear();
+                        }
+                        in_italic = false;
+                    } else if in_bold {
+                        if !current_text.is_empty() {
+                            let encoded_text = helper_encode_unicode(&current_text);
+                            result.push_str(&format!("[bold:[{}]]", encoded_text));
+                            current_text.clear();
+                        }
+                        // Start bold_italic
+                        in_bold = true;
+                        in_italic = true;
+                    } else {
+                        // Start italic
+                        if !current_text.is_empty() {
+                            let encoded_text = helper_encode_unicode(&current_text);
+                            result.push_str(&format!("[text:[{}]]", encoded_text));
+                            current_text.clear();
+                        }
+                        in_italic = true;
+                    }
+                }
+            }
+            _ => {
+                if in_code {
+                    code_buffer.push(ch);
+                } else {
+                    current_text.push(ch);
+                }
+            }
+        }
+    }
+
+    // Handle any remaining text
+    if !code_buffer.is_empty() {
+        let encoded_code = helper_encode_unicode(&code_buffer);
+        result.push_str(&format!("[code:[{}]]", encoded_code));
+    }
+
+    if !current_text.is_empty() {
+        let style = match (in_bold, in_italic) {
+            (true, true) => "bold_italic",
+            (true, false) => "bold",
+            (false, true) => "italic",
+            (false, false) => "text",
+        };
+        let encoded_text = helper_encode_unicode(&current_text);
+        result.push_str(&format!("[{}:[{}]]", style, encoded_text));
+    }
+
+    result
+}
+
+fn helper_encode_unicode(s: &str) -> String {
+    let mut result = String::new();
+    for ch in s.chars() {
+        let code = ch as u32;
+        if code <= 0x7F {
+            result.push(ch);
+        } else {
+            result.push_str(&format!("\\u{:X}", code));
+        }
+    }
+    result
 }

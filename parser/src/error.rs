@@ -1,4 +1,4 @@
-use std::{i64, process::exit};
+use std::{i64, path::PathBuf, process::exit};
 
 use colored::Colorize;
 use unicode_width::UnicodeWidthStr;
@@ -14,6 +14,8 @@ pub enum Exit {
         begin: i64,
         end: i64,
     },
+    DuplicateMarker(String),
+    CycleDependency(PathBuf),
 }
 
 impl From<std::io::Error> for Exit {
@@ -34,6 +36,14 @@ pub fn handle_exit(e: Exit) {
             end,
         } => {
             print_syntax_error(content, reason, line, begin, end);
+        }
+        Exit::DuplicateMarker(marker) => {
+            eprintln!("Duplicate marker `{}` found!", marker);
+            exit(1)
+        }
+        Exit::CycleDependency(dialog) => {
+            eprintln!("Dialog `{}` depends on itself!", dialog.display());
+            exit(1)
         }
     }
 }

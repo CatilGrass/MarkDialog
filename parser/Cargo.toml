@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 colored = "3.0"
+strip-ansi-escapes = "0.2.1"
 unicode-width = "0.2"
 regex = "1.12"
 sha2 = "0.10"

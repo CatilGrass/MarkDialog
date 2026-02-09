@@ -96,6 +96,9 @@ Eat pasta
 
 > Use images to switch backgrounds
 ![](backgrounds/park)
+
+> Use the following method to inline other files!
+[[branch.md]]
 ```
 
 It's that simple!
