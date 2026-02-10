@@ -1,6 +1,15 @@
 [package]
 name = "markdialog"
 edition = "2024"
+version = "0.1.0"
+authors = ["Weicao-CatilGrass"]
+description = "Write your story with Markdown!"
+repository = "https://github.com/CatilGrass/MarkDialog"
+license-file = "LICENSE-MIT"
+readme = "README.md"
+keywords = ["dialog", "markdown", "avg_game"]
+categories = ["game-development"]
+publish = true
 
 [workspace]
 package.version = "0.1.0"
