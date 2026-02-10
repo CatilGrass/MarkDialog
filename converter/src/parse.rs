@@ -29,21 +29,37 @@ pub fn parse(input: PathBuf, ir_output: PathBuf) -> Result<(), Exit> {
 
 pub mod unwrap_includes {
     use crate::{error::Exit, utils::path_fmt::format_path};
+    use regex::Regex;
+    use std::collections::HashMap;
     use std::path::{Path, PathBuf};
 
-    /// Expand text includes of [[Dialog.md]]
+    /// Expand text includes of [[markdown]] (searches for markdown.md) and image paths
     pub fn proc(input: String, self_path: PathBuf) -> Result<String, Exit> {
         let mut stack = Vec::<PathBuf>::new();
-        expand_recursive(input, &self_path, &mut stack)
+        let mut cache = HashMap::<String, PathBuf>::new();
+        let mut img_cache = HashMap::<String, PathBuf>::new();
+        let root_path = self_path.clone();
+        expand_recursive(
+            input,
+            &self_path,
+            &root_path,
+            &mut stack,
+            &mut cache,
+            &mut img_cache,
+        )
     }
 
     fn expand_recursive(
         content: String,
         current_path: &Path,
+        root_path: &Path,
         stack: &mut Vec<PathBuf>,
+        cache: &mut HashMap<String, PathBuf>,
+        img_cache: &mut HashMap<String, PathBuf>,
     ) -> Result<String, Exit> {
         let mut output = String::new();
         let mut in_code_block = false;
+        let obsidian_image_re = Regex::new(r"!\[\[([^\]]+)\]\]").unwrap();
 
         let current_norm = format_path(current_path)?;
 
@@ -67,8 +83,68 @@ pub mod unwrap_includes {
                 continue;
             }
 
-            if let Some(include_path) = extract_include(line) {
-                let include_abs = format_path(&current_path.parent().unwrap().join(include_path))?;
+            if let Some(include_name) = extract_include(line) {
+                let include_abs = if let Some(cached_path) = cache.get(include_name) {
+                    cached_path.clone()
+                } else {
+                    let base_dir = current_path.parent().unwrap();
+                    let mut queue = vec![base_dir.to_path_buf()];
+                    let mut visited = std::collections::HashSet::new();
+                    let mut found_path = None;
+
+                    while let Some(dir) = queue.pop() {
+                        if visited.contains(&dir) {
+                            continue;
+                        }
+                        visited.insert(dir.clone());
+
+                        let candidate1 = dir.join(include_name);
+                        if candidate1.exists()
+                            && candidate1.extension().map_or(false, |ext| ext == "md")
+                        {
+                            found_path = Some(format_path(&candidate1)?);
+                            break;
+                        }
+
+                        // Try add .md extension
+                        let candidate2 = dir.join(format!("{}.md", include_name));
+                        if candidate2.exists() {
+                            found_path = Some(format_path(&candidate2)?);
+                            break;
+                        }
+
+                        if let Some(parent) = dir.parent() {
+                            queue.push(parent.to_path_buf());
+                        }
+
+                        if let Ok(entries) = std::fs::read_dir(&dir) {
+                            for entry in entries.flatten() {
+                                if let Ok(file_type) = entry.file_type() {
+                                    if file_type.is_dir() {
+                                        queue.push(entry.path());
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    match found_path {
+                        Some(path) => {
+                            cache.insert(include_name.to_string(), path.clone());
+                            path
+                        }
+                        None => {
+                            return Err(Exit::FileNotFound(
+                                format!(
+                                    "{} or {}.md (searched from {:?})",
+                                    include_name, include_name, base_dir
+                                )
+                                .into(),
+                            ));
+                        }
+                    }
+                };
+
                 let include_content = std::fs::read_to_string(&include_abs).map_err(|e| {
                     if e.kind() == std::io::ErrorKind::NotFound {
                         Exit::FileNotFound(include_abs.clone())
@@ -77,10 +153,91 @@ pub mod unwrap_includes {
                     }
                 })?;
 
-                let expanded = expand_recursive(include_content, &include_abs, stack)?;
+                let expanded = expand_recursive(
+                    include_content,
+                    &include_abs,
+                    root_path,
+                    stack,
+                    cache,
+                    img_cache,
+                )?;
                 output.push_str(&expanded);
             } else {
-                output.push_str(line);
+                // Process image links
+                let mut processed_line = line.to_string();
+
+                // First process Obsidian image syntax ![[...]]
+                let mut obsidian_matches: Vec<(usize, usize, String)> = Vec::new();
+
+                for caps in obsidian_image_re.captures_iter(line) {
+                    let full_match = caps.get(0).unwrap();
+                    let image_ref = caps.get(1).unwrap().as_str();
+
+                    // Try to get from img_cache first
+                    let image_abs = if let Some(cached_path) = img_cache.get(image_ref) {
+                        cached_path.clone()
+                    } else {
+                        // Start search from root directory for Obsidian syntax
+                        let root_dir = root_path.parent().unwrap();
+                        let mut queue = vec![root_dir.to_path_buf()];
+                        let mut visited = std::collections::HashSet::new();
+                        let mut found_image_path = None;
+
+                        while let Some(dir) = queue.pop() {
+                            if visited.contains(&dir) {
+                                continue;
+                            }
+                            visited.insert(dir.clone());
+
+                            // Check if file exists in this directory
+                            let candidate = dir.join(image_ref);
+                            if candidate.exists() {
+                                found_image_path = Some(format_path(&candidate)?);
+                                break;
+                            }
+
+                            // Add parent directory to queue (breadth-first upward)
+                            if let Some(parent) = dir.parent() {
+                                queue.push(parent.to_path_buf());
+                            }
+
+                            // Add subdirectories to queue (breadth-first downward)
+                            if let Ok(entries) = std::fs::read_dir(&dir) {
+                                for entry in entries.flatten() {
+                                    if let Ok(file_type) = entry.file_type() {
+                                        if file_type.is_dir() {
+                                            queue.push(entry.path());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        match found_image_path {
+                            Some(path) => {
+                                img_cache.insert(image_ref.to_string(), path.clone());
+                                path
+                            }
+                            None => {
+                                // If image not found, keep the original syntax
+                                continue;
+                            }
+                        }
+                    };
+
+                    // Store the replacement information
+                    let start = full_match.start();
+                    let end = full_match.end();
+                    let new_image_markdown = format!("![]({})", image_abs.display());
+                    obsidian_matches.push((start, end, new_image_markdown));
+                }
+
+                // Apply Obsidian replacements in reverse order to maintain correct indices
+                for (start, end, replacement) in obsidian_matches.into_iter().rev() {
+                    processed_line.replace_range(start..end, &replacement);
+                }
+
+                output.push_str(&processed_line);
                 output.push('\n');
             }
         }
