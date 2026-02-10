@@ -120,12 +120,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-markdialog = { git = "https://github.com/CatilGrass/MarkDialog" }
+markdialog = "0.1"
 ```
 
 ```rust
 // main.rs
-use markdialog::generate::{markdialog, step};
+use markdialog::{markdialog, step};
 
 markdialog!(my = "alice_and_bob.dialog");
 
@@ -152,4 +152,3 @@ fn main() {
 }
 
 ```
-
